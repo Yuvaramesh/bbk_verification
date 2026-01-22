@@ -1,0 +1,325 @@
+{% extends "base.html" %} {% block title %}Admin Dashboard - Verification
+System{% endblock %} {% block content %}
+<div class="admin-dashboard">
+  <h2>Admin Dashboard - Verification Management</h2>
+
+  <!-- Statistics -->
+  <div class="stats-grid">
+    <div class="stat-card">
+      <h3>Total Today</h3>
+      <div class="number">{{ stats.total_emails }}</div>
+    </div>
+    <div class="stat-card">
+      <h3>Pending</h3>
+      <div class="number" style="color: #f59e0b">{{ stats.pending }}</div>
+    </div>
+    <div class="stat-card">
+      <h3>Under Review</h3>
+      <div class="number" style="color: #3b82f6">{{ stats.under_review }}</div>
+    </div>
+    <div class="stat-card">
+      <h3>Admin Approved</h3>
+      <div class="number" style="color: #10b981">
+        {{ stats.admin_approved }}
+      </div>
+    </div>
+  </div>
+
+  <!-- Pending Verifications Table -->
+  {% if verifications %}
+  <div class="card">
+    <h3>Pending Verifications - Action Required</h3>
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Verification ID</th>
+          <th>User Email</th>
+          <th>Status</th>
+          <th>Documents</th>
+          <th>Submitted</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for verification in verifications %}
+        <tr>
+          <td>
+            <a
+              href="{{ url_for('verification_detail', verification_id=verification._id) }}"
+              style="color: #2563eb; text-decoration: none; font-weight: 600"
+            >
+              {{ verification._id[:8] }}
+            </a>
+          </td>
+          <td>{{ verification.user_email }}</td>
+          <td>
+            <span
+              class="badge {% if verification.status == 'pending' %}badge-warning {% else %}badge-primary {% endif %}"
+            >
+              {{ verification.status.replace('_', ' ').title() }}
+            </span>
+          </td>
+          <td>
+            <div style="display: flex; flex-wrap: wrap; gap: 0.25rem">
+              {% for doc in verification.documents[:3] %}
+              <span
+                class="badge badge-primary"
+                style="
+                  background-color: rgba(37, 99, 235, 0.1);
+                  font-size: 0.75rem;
+                "
+              >
+                {{ doc[:3] }}
+              </span>
+              {% endfor %} {% if verification.documents|length > 3 %}
+              <span
+                class="badge"
+                style="background-color: #f3f4f6; font-size: 0.75rem"
+              >
+                +{{ verification.documents|length - 3 }}
+              </span>
+              {% endif %}
+            </div>
+          </td>
+          <td>
+            <small style="color: #6b7280">
+              {{ verification.created_at.strftime('%Y-%m-%d %H:%M') }}
+            </small>
+          </td>
+          <td>
+            <button
+              class="btn"
+              style="
+                background-color: #10b981;
+                color: white;
+                font-size: 0.875rem;
+                padding: 0.5rem 1rem;
+              "
+              onclick="approveVerification('{{ verification._id }}')"
+            >
+              Approve
+            </button>
+            <button
+              class="btn"
+              style="
+                background-color: #ef4444;
+                color: white;
+                font-size: 0.875rem;
+                padding: 0.5rem 1rem;
+                margin-left: 0.5rem;
+              "
+              onclick="rejectVerification('{{ verification._id }}')"
+            >
+              Reject
+            </button>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="card" style="text-align: center; padding: 3rem">
+    <h3 style="color: #10b981; margin-bottom: 1rem">
+      All Pending Items Reviewed!
+    </h3>
+    <p style="color: #6b7280">
+      No pending verifications at the moment. All submissions have been either
+      approved for CEO review or rejected.
+    </p>
+  </div>
+  {% endif %}
+</div>
+
+<!-- Modals -->
+<div id="approveModal" class="modal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h2>Approve Verification</h2>
+    </div>
+    <form id="approveForm">
+      <div class="form-group">
+        <label for="adminNotes">Notes (Optional)</label>
+        <textarea
+          id="adminNotes"
+          name="notes"
+          style="height: 100px"
+          placeholder="Add any notes for the CEO review..."
+        ></textarea>
+      </div>
+      <div class="modal-footer">
+        <button
+          type="button"
+          class="btn"
+          style="background-color: #e5e7eb; color: #374151"
+          onclick="closeModal('approveModal')"
+        >
+          Cancel
+        </button>
+        <button type="submit" class="btn btn-success">Approve</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div id="rejectModal" class="modal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h2>Reject Verification</h2>
+    </div>
+    <form id="rejectForm">
+      <div class="form-group">
+        <label for="rejectReason">Reason for Rejection</label>
+        <textarea
+          id="rejectReason"
+          name="reason"
+          required
+          style="height: 100px"
+          placeholder="Explain why this verification is being rejected..."
+        ></textarea>
+      </div>
+      <div class="modal-footer">
+        <button
+          type="button"
+          class="btn"
+          style="background-color: #e5e7eb; color: #374151"
+          onclick="closeModal('rejectModal')"
+        >
+          Cancel
+        </button>
+        <button type="submit" class="btn btn-danger">Reject</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+  let currentVerificationId = null;
+
+  function approveVerification(verificationId) {
+    currentVerificationId = verificationId;
+    document.getElementById("approveModal").classList.add("show");
+  }
+
+  function rejectVerification(verificationId) {
+    currentVerificationId = verificationId;
+    document.getElementById("rejectModal").classList.add("show");
+  }
+
+  function closeModal(modalId) {
+    document.getElementById(modalId).classList.remove("show");
+  }
+
+  document
+    .getElementById("approveForm")
+    .addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const notes = document.getElementById("adminNotes").value;
+
+      try {
+        const response = await fetch(
+          `/admin/approve/${currentVerificationId}`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ notes: notes }),
+          },
+        );
+
+        if (response.ok) {
+          alert("Verification approved and sent to CEO for review");
+          refreshDashboard();
+        } else {
+          alert("Error approving verification");
+        }
+      } catch (error) {
+        console.error("Error:", error);
+        alert("Error approving verification");
+      }
+
+      closeModal("approveModal");
+    });
+
+  document
+    .getElementById("rejectForm")
+    .addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const reason = document.getElementById("rejectReason").value;
+
+      try {
+        const response = await fetch(`/admin/reject/${currentVerificationId}`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ reason: reason }),
+        });
+
+        if (response.ok) {
+          alert("Verification rejected and user notified");
+          refreshDashboard();
+        } else {
+          alert("Error rejecting verification");
+        }
+      } catch (error) {
+        console.error("Error:", error);
+        alert("Error rejecting verification");
+      }
+
+      closeModal("rejectModal");
+    });
+
+  async function refreshDashboard() {
+    location.reload();
+  }
+
+  // Auto-refresh dashboard every 5 seconds
+  setInterval(async () => {
+    try {
+      const response = await fetch("/api/dashboard-data");
+      if (response.ok) {
+        const data = await response.json();
+        if (data.role === "admin") {
+          updateAdminStats(data.today_stats);
+        }
+      }
+    } catch (error) {
+      console.log("[v0] Auto-refresh error:", error);
+    }
+  }, 5000);
+
+  function updateAdminStats(stats) {
+    const totalCard = document.querySelector(
+      ".stats-grid .stat-card:nth-child(1) .number",
+    );
+    const pendingCard = document.querySelector(
+      ".stats-grid .stat-card:nth-child(2) .number",
+    );
+    const underReviewCard = document.querySelector(
+      ".stats-grid .stat-card:nth-child(3) .number",
+    );
+    const approvedCard = document.querySelector(
+      ".stats-grid .stat-card:nth-child(4) .number",
+    );
+
+    if (totalCard) totalCard.textContent = stats.total_emails;
+    if (pendingCard) pendingCard.textContent = stats.pending;
+    if (underReviewCard) underReviewCard.textContent = stats.under_review;
+    if (approvedCard) approvedCard.textContent = stats.admin_approved;
+  }
+
+  // Close modal on outside click
+  window.addEventListener("click", (e) => {
+    const approveModal = document.getElementById("approveModal");
+    const rejectModal = document.getElementById("rejectModal");
+    if (e.target === approveModal) {
+      closeModal("approveModal");
+    }
+    if (e.target === rejectModal) {
+      closeModal("rejectModal");
+    }
+  });
+</script>
+{% endblock %}

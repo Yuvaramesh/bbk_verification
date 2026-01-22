@@ -1,0 +1,162 @@
+{% extends "base.html" %}
+
+{% block title %}Verification Details - Verification System{% endblock %}
+
+{% block content %}
+<div class="verification-detail">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+        <h2>Verification Details</h2>
+        <a href="javascript:history.back()" class="btn" style="background-color: #e5e7eb; color: #374151;">Back</a>
+    </div>
+
+    <div class="card">
+        <div style="margin-bottom: 2rem; padding-bottom: 1.5rem; border-bottom: 1px solid #e5e7eb;">
+            <h3>Verification Information</h3>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.5rem; margin-top: 1rem;">
+                <div>
+                    <p style="color: #6b7280; font-size: 0.875rem; margin-bottom: 0.25rem;">Verification ID</p>
+                    <p style="font-weight: 600;">{{ verification._id }}</p>
+                </div>
+                <div>
+                    <p style="color: #6b7280; font-size: 0.875rem; margin-bottom: 0.25rem;">User Name</p>
+                    <p style="font-weight: 600;">{{ verification.user_name }}</p>
+                </div>
+                <div>
+                    <p style="color: #6b7280; font-size: 0.875rem; margin-bottom: 0.25rem;">User Email</p>
+                    <p style="font-weight: 600;">{{ verification.user_email }}</p>
+                </div>
+                <div>
+                    <p style="color: #6b7280; font-size: 0.875rem; margin-bottom: 0.25rem;">Current Status</p>
+                    <p>
+                        <span class="badge
+                            {% if verification.status == 'pending' %}badge-warning
+                            {% elif verification.status == 'under_review' %}badge-warning
+                            {% elif verification.status == 'ceo_review' %}badge-primary
+                            {% elif verification.status == 'approved' %}badge-success
+                            {% elif verification.status == 'rejected' %}badge-danger
+                            {% endif %}">
+                            {{ verification.status.replace('_', ' ').title() }}
+                        </span>
+                    </p>
+                </div>
+                <div>
+                    <p style="color: #6b7280; font-size: 0.875rem; margin-bottom: 0.25rem;">Submitted</p>
+                    <p style="font-weight: 600;">{{ verification.created_at.strftime('%Y-%m-%d %H:%M') }}</p>
+                </div>
+                <div>
+                    <p style="color: #6b7280; font-size: 0.875rem; margin-bottom: 0.25rem;">Last Updated</p>
+                    <p style="font-weight: 600;">{{ verification.updated_at.strftime('%Y-%m-%d %H:%M') }}</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Document Types -->
+        <div style="margin-bottom: 2rem; padding-bottom: 1.5rem; border-bottom: 1px solid #e5e7eb;">
+            <h3>Requested Documents</h3>
+            <div style="display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 1rem;">
+                {% for doc_type in verification.documents %}
+                    <span class="badge badge-primary" style="background-color: rgba(37, 99, 235, 0.1); color: #2563eb; padding: 0.5rem 1rem; font-size: 0.9rem;">
+                        {{ doc_type.replace('_', ' ').title() }}
+                    </span>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Uploaded Documents -->
+        <div style="margin-bottom: 2rem; padding-bottom: 1.5rem; border-bottom: 1px solid #e5e7eb;">
+            <h3>Uploaded Documents</h3>
+            {% if verification.documents_info %}
+                <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 1rem; margin-top: 1rem;">
+                    {% for doc in verification.documents_info %}
+                        <div style="padding: 1rem; border: 1px solid #e5e7eb; border-radius: 8px;">
+                            <p style="font-weight: 600; margin-bottom: 0.5rem;">{{ doc.document_type.replace('_', ' ').title() }}</p>
+                            <p style="font-size: 0.875rem; color: #6b7280; margin-bottom: 0.5rem;">Document ID: {{ doc._id[:8] }}</p>
+                            <p>
+                                <span class="badge
+                                    {% if doc.firmcheck_status == 'verified' %}badge-success
+                                    {% elif doc.firmcheck_status == 'pending' %}badge-warning
+                                    {% else %}badge-danger
+                                    {% endif %}">
+                                    FirmCheck: {{ doc.firmcheck_status.title() }}
+                                </span>
+                            </p>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <p style="color: #9ca3af;">No documents uploaded yet.</p>
+            {% endif %}
+        </div>
+
+        <!-- Approval Status -->
+        <div style="margin-bottom: 2rem; padding-bottom: 1.5rem; border-bottom: 1px solid #e5e7eb;">
+            <h3>Approval Workflow</h3>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-top: 1rem;">
+                <div style="padding: 1rem; background-color: #f3f4f6; border-radius: 8px;">
+                    <p style="font-size: 0.875rem; color: #6b7280; margin-bottom: 0.5rem;">FirmCheck Verification</p>
+                    <p style="font-weight: 600;">
+                        {% if verification.firmcheck_verified %}
+                            ✓ Verified
+                        {% else %}
+                            ⋯ Pending
+                        {% endif %}
+                    </p>
+                </div>
+                <div style="padding: 1rem; background-color: #f3f4f6; border-radius: 8px;">
+                    <p style="font-size: 0.875rem; color: #6b7280; margin-bottom: 0.5rem;">Admin Review</p>
+                    <p style="font-weight: 600;">
+                        {% if verification.admin_approved %}
+                            ✓ Approved
+                        {% else %}
+                            ⋯ Pending
+                        {% endif %}
+                    </p>
+                    {% if verification.admin_notes %}
+                        <p style="font-size: 0.875rem; color: #374151; margin-top: 0.5rem;">
+                            <strong>Notes:</strong> {{ verification.admin_notes }}
+                        </p>
+                    {% endif %}
+                </div>
+                <div style="padding: 1rem; background-color: #f3f4f6; border-radius: 8px;">
+                    <p style="font-size: 0.875rem; color: #6b7280; margin-bottom: 0.5rem;">CEO Review</p>
+                    <p style="font-weight: 600;">
+                        {% if verification.ceo_approved %}
+                            ✓ Approved
+                        {% else %}
+                            ⋯ Pending
+                        {% endif %}
+                    </p>
+                    {% if verification.ceo_notes %}
+                        <p style="font-size: 0.875rem; color: #374151; margin-top: 0.5rem;">
+                            <strong>Notes:</strong> {{ verification.ceo_notes }}
+                        </p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Status Messages -->
+        {% if verification.cleared %}
+            <div class="alert alert-success">
+                <strong>Verification Cleared</strong>
+                <p>All documents have been verified and approved. Cleared on {{ verification.cleared_at.strftime('%Y-%m-%d %H:%M') }}</p>
+            </div>
+        {% elif verification.status == 'rejected' %}
+            <div class="alert alert-danger">
+                <strong>Verification Rejected</strong>
+                <p>{{ verification.admin_notes or verification.ceo_notes or 'Please resubmit with additional documentation.' }}</p>
+            </div>
+        {% elif verification.admin_approved and not verification.ceo_approved %}
+            <div class="alert alert-warning">
+                <strong>Pending CEO Review</strong>
+                <p>Your verification has been reviewed by the admin team and is now awaiting final approval from the CEO.</p>
+            </div>
+        {% elif not verification.admin_approved %}
+            <div class="alert alert-warning">
+                <strong>Under Review</strong>
+                <p>Your verification is currently being reviewed by our admin team.</p>
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

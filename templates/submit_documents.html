@@ -1,0 +1,154 @@
+{% extends "base.html" %}
+
+{% block title %}Submit Documents - Verification System{% endblock %}
+
+{% block content %}
+<div class="submit-section">
+    <h2>Submit Documents for Verification</h2>
+    <p style="color: #6b7280; margin-bottom: 2rem;">Please upload the required documents below. All documents will be verified against FirmCheck and reviewed by our admin team.</p>
+
+    <div class="card">
+        <form method="POST" enctype="multipart/form-data" id="submitForm">
+            <div class="form-group">
+                <label for="name">Full Name</label>
+                <input type="text" id="name" name="name" required placeholder="John Doe">
+            </div>
+
+            <div class="form-group">
+                <label>Document Types</label>
+                <div class="checkbox-group">
+                    {% for doc_type in doc_types %}
+                        <div style="margin-bottom: 0.75rem;">
+                            <label style="display: flex; align-items: center; font-weight: 500; margin: 0;">
+                                <input type="checkbox" name="document_types" value="{{ doc_type }}" style="width: auto; margin-right: 0.5rem;">
+                                {{ doc_type.replace('_', ' ').title() }}
+                            </label>
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="files">Upload Documents</label>
+                <div class="file-upload-area" id="fileUploadArea" style="border: 2px dashed #ccc; border-radius: 8px; padding: 2rem; text-align: center; background-color: #fafbfc; cursor: pointer; transition: all 0.3s;">
+                    <input type="file" id="files" name="files" multiple required style="display: none;">
+                    <p style="margin: 0; color: #6b7280;">Drag and drop files here or click to browse</p>
+                    <p style="margin: 0.5rem 0 0 0; font-size: 0.875rem; color: #9ca3af;">Supported: PDF, PNG, JPG, JPEG, GIF (Max 16MB per file)</p>
+                </div>
+                <div id="fileList" style="margin-top: 1rem;"></div>
+            </div>
+
+            <div style="display: flex; gap: 1rem; margin-top: 2rem;">
+                <button type="submit" class="btn btn-primary">Submit for Verification</button>
+                <a href="{{ url_for('user_dashboard') }}" class="btn" style="background-color: #e5e7eb; color: #374151;">Cancel</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<style>
+    .checkbox-group {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+    }
+
+    .file-upload-area {
+        position: relative;
+    }
+
+    .file-upload-area:hover {
+        border-color: #2563eb;
+        background-color: #eff6ff;
+    }
+
+    .file-upload-area.dragover {
+        border-color: #2563eb;
+        background-color: #dbeafe;
+    }
+
+    .file-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0.75rem;
+        background-color: #f3f4f6;
+        border-radius: 6px;
+        margin-bottom: 0.5rem;
+    }
+
+    .file-item .remove {
+        cursor: pointer;
+        color: #ef4444;
+        font-weight: bold;
+    }
+</style>
+
+<script>
+    const fileUploadArea = document.getElementById('fileUploadArea');
+    const fileInput = document.getElementById('files');
+    const fileList = document.getElementById('fileList');
+
+    // Click to browse
+    fileUploadArea.addEventListener('click', () => {
+        fileInput.click();
+    });
+
+    // Drag and drop
+    fileUploadArea.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        fileUploadArea.classList.add('dragover');
+    });
+
+    fileUploadArea.addEventListener('dragleave', () => {
+        fileUploadArea.classList.remove('dragover');
+    });
+
+    fileUploadArea.addEventListener('drop', (e) => {
+        e.preventDefault();
+        fileUploadArea.classList.remove('dragover');
+        fileInput.files = e.dataTransfer.files;
+        updateFileList();
+    });
+
+    fileInput.addEventListener('change', updateFileList);
+
+    function updateFileList() {
+        fileList.innerHTML = '';
+        Array.from(fileInput.files).forEach((file, index) => {
+            const fileItem = document.createElement('div');
+            fileItem.className = 'file-item';
+            fileItem.innerHTML = `
+                <div>
+                    <strong>${file.name}</strong>
+                    <p style="margin: 0.25rem 0 0 0; font-size: 0.875rem; color: #6b7280;">
+                        ${(file.size / 1024 / 1024).toFixed(2)} MB
+                    </p>
+                </div>
+                <span class="remove" onclick="removeFile(${index})">✕</span>
+            `;
+            fileList.appendChild(fileItem);
+        });
+    }
+
+    function removeFile(index) {
+        const dataTransfer = new DataTransfer();
+        Array.from(fileInput.files).forEach((file, i) => {
+            if (i !== index) {
+                dataTransfer.items.add(file);
+            }
+        });
+        fileInput.files = dataTransfer.files;
+        updateFileList();
+    }
+
+    // Form submission
+    document.getElementById('submitForm').addEventListener('submit', (e) => {
+        const checkboxes = document.querySelectorAll('input[name="document_types"]:checked');
+        if (checkboxes.length === 0) {
+            e.preventDefault();
+            alert('Please select at least one document type');
+        }
+    });
+</script>
+{% endblock %}

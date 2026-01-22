@@ -1,0 +1,360 @@
+{% extends "base.html" %}
+
+{% block title %}Analytics Dashboard - Verification System{% endblock %}
+
+{% block extra_css %}
+<style>
+    .chart-container {
+        background: white;
+        border-radius: 8px;
+        padding: 1.5rem;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        margin-bottom: 1.5rem;
+    }
+
+    .metric-row {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 1rem;
+        margin-bottom: 2rem;
+    }
+
+    .metric-item {
+        text-align: center;
+        padding: 1rem;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 8px;
+    }
+
+    .metric-value {
+        font-size: 2rem;
+        font-weight: bold;
+        margin: 0.5rem 0;
+    }
+
+    .metric-label {
+        font-size: 0.875rem;
+        opacity: 0.9;
+    }
+
+    .status-indicator {
+        display: inline-block;
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        margin-right: 0.5rem;
+    }
+
+    .status-indicator.active {
+        background-color: #10b981;
+        animation: pulse 2s infinite;
+    }
+
+    .status-indicator.inactive {
+        background-color: #ef4444;
+    }
+
+    @keyframes pulse {
+        0% { opacity: 1; }
+        50% { opacity: 0.5; }
+        100% { opacity: 1; }
+    }
+
+    .timeline {
+        position: relative;
+        padding: 1rem 0;
+    }
+
+    .timeline-item {
+        display: flex;
+        margin-bottom: 1.5rem;
+        position: relative;
+    }
+
+    .timeline-marker {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background-color: #2563eb;
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-right: 1rem;
+        flex-shrink: 0;
+        font-weight: bold;
+    }
+
+    .timeline-marker.completed {
+        background-color: #10b981;
+    }
+
+    .timeline-content {
+        flex: 1;
+    }
+
+    .timeline-content h4 {
+        margin-top: 0;
+        margin-bottom: 0.25rem;
+    }
+
+    .timeline-content p {
+        margin: 0;
+        color: #6b7280;
+        font-size: 0.875rem;
+    }
+
+    .progress-bar {
+        width: 100%;
+        height: 24px;
+        background-color: #e5e7eb;
+        border-radius: 12px;
+        overflow: hidden;
+        margin-bottom: 0.5rem;
+    }
+
+    .progress-fill {
+        height: 100%;
+        background: linear-gradient(90deg, #10b981, #059669);
+        transition: width 0.3s ease;
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        padding-right: 0.5rem;
+        color: white;
+        font-size: 0.75rem;
+        font-weight: bold;
+    }
+
+    .real-time-badge {
+        display: inline-block;
+        background-color: #f0fdf4;
+        color: #10b981;
+        padding: 0.25rem 0.75rem;
+        border-radius: 999px;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="analytics-dashboard">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+        <h2>Analytics & System Overview</h2>
+        <span class="real-time-badge">
+            <span class="status-indicator active"></span>
+            Real-time Updates
+        </span>
+    </div>
+
+    <!-- Real-time Stats -->
+    <div class="metric-row" id="metricsContainer">
+        <div class="metric-item" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+            <div class="metric-label">Total Verifications</div>
+            <div class="metric-value" id="metricTotal">0</div>
+        </div>
+        <div class="metric-item" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
+            <div class="metric-label">Pending</div>
+            <div class="metric-value" id="metricPending">0</div>
+        </div>
+        <div class="metric-item" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);">
+            <div class="metric-label">Under Review</div>
+            <div class="metric-value" id="metricUnderReview">0</div>
+        </div>
+        <div class="metric-item" style="background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);">
+            <div class="metric-label">Approved</div>
+            <div class="metric-value" id="metricApproved">0</div>
+        </div>
+        <div class="metric-item" style="background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);">
+            <div class="metric-label">Rejected</div>
+            <div class="metric-value" id="metricRejected">0</div>
+        </div>
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem;">
+        <!-- Approval Rate -->
+        <div class="chart-container">
+            <h3>Approval Rate</h3>
+            <div class="progress-bar">
+                <div class="progress-fill" id="approvalRate" style="width: 0%;">0%</div>
+            </div>
+            <p style="color: #6b7280; font-size: 0.875rem; margin: 0;">
+                <strong id="approvalRateText">0</strong> approved out of <strong id="approvalRateTotal">0</strong>
+            </p>
+        </div>
+
+        <!-- Processing Time -->
+        <div class="chart-container">
+            <h3>Average Processing Time</h3>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                <div style="text-align: center; padding: 1rem; background-color: #f9fafb; border-radius: 6px;">
+                    <p style="margin: 0 0 0.5rem 0; color: #6b7280; font-size: 0.875rem;">To Admin Review</p>
+                    <p style="margin: 0; font-size: 1.5rem; font-weight: bold; color: #2563eb;">
+                        <span id="timeToAdmin">-</span>h
+                    </p>
+                </div>
+                <div style="text-align: center; padding: 1rem; background-color: #f9fafb; border-radius: 6px;">
+                    <p style="margin: 0 0 0.5rem 0; color: #6b7280; font-size: 0.875rem;">To CEO Review</p>
+                    <p style="margin: 0; font-size: 1.5rem; font-weight: bold; color: #f59e0b;">
+                        <span id="timeToCEO">-</span>h
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Clearance Status -->
+        <div class="chart-container">
+            <h3>Clearance Status</h3>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                <div style="padding: 1rem; background-color: #f0fdf4; border-radius: 6px; border-left: 4px solid #10b981;">
+                    <p style="margin: 0 0 0.25rem 0; color: #6b7280; font-size: 0.875rem;">Cleared</p>
+                    <p style="margin: 0; font-size: 1.75rem; font-weight: bold; color: #10b981;">
+                        <span id="clearedCount">0</span>
+                    </p>
+                </div>
+                <div style="padding: 1rem; background-color: #fef3c7; border-radius: 6px; border-left: 4px solid #f59e0b;">
+                    <p style="margin: 0 0 0.25rem 0; color: #6b7280; font-size: 0.875rem;">Remaining</p>
+                    <p style="margin: 0; font-size: 1.75rem; font-weight: bold; color: #f59e0b;">
+                        <span id="remainingCount">0</span>
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Workflow Timeline -->
+    <div class="card" style="margin-top: 2rem;">
+        <h3>Verification Workflow</h3>
+        <div class="timeline">
+            <div class="timeline-item">
+                <div class="timeline-marker">1</div>
+                <div class="timeline-content">
+                    <h4>Document Submission</h4>
+                    <p>User submits required documents for verification</p>
+                </div>
+            </div>
+
+            <div class="timeline-item">
+                <div class="timeline-marker">2</div>
+                <div class="timeline-content">
+                    <h4>FirmCheck Verification</h4>
+                    <p>Documents are automatically verified against FirmCheck database</p>
+                    <p style="margin-top: 0.5rem;">
+                        <span class="badge badge-primary">Current: <span id="firmcheckVerified">0</span> verified</span>
+                    </p>
+                </div>
+            </div>
+
+            <div class="timeline-item">
+                <div class="timeline-marker">3</div>
+                <div class="timeline-content">
+                    <h4>Admin Review</h4>
+                    <p>Admin team reviews and approves/rejects documents</p>
+                    <p style="margin-top: 0.5rem;">
+                        <span class="badge badge-primary">Current: <span id="adminApproved">0</span> approved</span>
+                    </p>
+                </div>
+            </div>
+
+            <div class="timeline-item">
+                <div class="timeline-marker">4</div>
+                <div class="timeline-content">
+                    <h4>CEO Final Review</h4>
+                    <p>CEO reviews admin-approved verifications and grants final clearance</p>
+                    <p style="margin-top: 0.5rem;">
+                        <span class="badge badge-primary">Current: <span id="ceoApproved">0</span> cleared</span>
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- System Health -->
+    <div class="card" style="margin-top: 2rem;">
+        <h3>System Health</h3>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
+            <div style="padding: 1rem; background-color: #f0fdf4; border-radius: 6px;">
+                <p style="margin: 0; color: #6b7280; font-size: 0.875rem;">Database Status</p>
+                <p style="margin: 0.5rem 0 0 0; font-weight: 600;">
+                    <span class="status-indicator active"></span>
+                    Connected
+                </p>
+            </div>
+            <div style="padding: 1rem; background-color: #f0fdf4; border-radius: 6px;">
+                <p style="margin: 0; color: #6b7280; font-size: 0.875rem;">Email Service</p>
+                <p style="margin: 0.5rem 0 0 0; font-weight: 600;">
+                    <span class="status-indicator active"></span>
+                    Active
+                </p>
+            </div>
+            <div style="padding: 1rem; background-color: #f0fdf4; border-radius: 6px;">
+                <p style="margin: 0; color: #6b7280; font-size: 0.875rem;">API Status</p>
+                <p style="margin: 0.5rem 0 0 0; font-weight: 600;">
+                    <span class="status-indicator active"></span>
+                    Running
+                </p>
+            </div>
+            <div style="padding: 1rem; background-color: #f0fdf4; border-radius: 6px;">
+                <p style="margin: 0; color: #6b7280; font-size: 0.875rem;">Last Updated</p>
+                <p style="margin: 0.5rem 0 0 0; font-weight: 600;" id="lastUpdated">Just now</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    async function updateDashboard() {
+        try {
+            const response = await fetch('/api/dashboard-data');
+            if (!response.ok) return;
+
+            const data = await response.json();
+            const today = data.today_stats;
+            const workflow = data.workflow_stats;
+
+            // Update metrics
+            document.getElementById('metricTotal').textContent = workflow.total_verifications;
+            document.getElementById('metricPending').textContent = workflow.status_breakdown.pending;
+            document.getElementById('metricUnderReview').textContent = workflow.status_breakdown.under_review;
+            document.getElementById('metricApproved').textContent = workflow.status_breakdown.approved;
+            document.getElementById('metricRejected').textContent = workflow.status_breakdown.rejected;
+
+            // Update approval rate
+            const total = workflow.total_verifications;
+            const approved = workflow.status_breakdown.approved;
+            const rate = total > 0 ? Math.round((approved / total) * 100) : 0;
+            document.getElementById('approvalRate').style.width = rate + '%';
+            document.getElementById('approvalRate').textContent = rate + '%';
+            document.getElementById('approvalRateText').textContent = approved;
+            document.getElementById('approvalRateTotal').textContent = total;
+
+            // Update processing times
+            document.getElementById('timeToAdmin').textContent = workflow.avg_time_to_admin_review_hours.toFixed(1);
+            document.getElementById('timeToCEO').textContent = workflow.avg_time_to_ceo_review_hours.toFixed(1);
+
+            // Update clearance status
+            document.getElementById('clearedCount').textContent = workflow.approval_counts.cleared;
+            document.getElementById('remainingCount').textContent = total - workflow.approval_counts.cleared;
+
+            // Update workflow counters
+            document.getElementById('firmcheckVerified').textContent = approved;
+            document.getElementById('adminApproved').textContent = workflow.approval_counts.admin_approved;
+            document.getElementById('ceoApproved').textContent = workflow.approval_counts.ceo_approved;
+
+            // Update timestamp
+            const now = new Date();
+            document.getElementById('lastUpdated').textContent = now.toLocaleTimeString();
+        } catch (error) {
+            console.error('Error updating dashboard:', error);
+        }
+    }
+
+    // Update on page load
+    updateDashboard();
+
+    // Auto-refresh every 30 seconds
+    setInterval(updateDashboard, 30000);
+</script>
+{% endblock %}

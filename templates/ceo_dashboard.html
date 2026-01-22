@@ -1,0 +1,469 @@
+{% extends "base.html" %} {% block title %}CEO Dashboard - Verification System{%
+endblock %} {% block content %}
+<div class="ceo-dashboard">
+  <h2>CEO Dashboard - Verification Overview</h2>
+
+  <!-- Executive Summary Statistics -->
+  <div class="stats-grid">
+    <div class="stat-card">
+      <h3>Total Today</h3>
+      <div class="number">{{ stats.total_emails }}</div>
+    </div>
+    <div class="stat-card">
+      <h3>Pending</h3>
+      <div class="number" style="color: #f59e0b">{{ stats.pending }}</div>
+    </div>
+    <div class="stat-card">
+      <h3>Admin Approved</h3>
+      <div class="number" style="color: #3b82f6">
+        {{ stats.admin_approved }}
+      </div>
+    </div>
+    <div class="stat-card">
+      <h3>CEO Approved</h3>
+      <div class="number" style="color: #10b981">{{ stats.ceo_approved }}</div>
+    </div>
+    <div class="stat-card">
+      <h3>Cleared</h3>
+      <div class="number" style="color: #059669">{{ stats.cleared }}</div>
+    </div>
+    <div class="stat-card">
+      <h3>Remaining</h3>
+      <div class="number" style="color: #dc2626">{{ stats.remaining }}</div>
+    </div>
+  </div>
+
+  <!-- Summary Alert -->
+  <div
+    id="summaryAlert"
+    class="alert"
+    style="
+      background-color: #eff6ff;
+      border: 1px solid #3b82f6;
+      color: #1e40af;
+      margin-bottom: 2rem;
+    "
+  >
+    <strong>Daily Summary:</strong>
+    Out of <span id="summaryTotal">{{ stats.total_emails }}</span> total
+    submissions today,
+    <span id="summaryAdminApproved">{{ stats.admin_approved }}</span> have been
+    approved by admin team and
+    <span id="summaryCeoApproved">{{ stats.ceo_approved }}</span> have been
+    cleared by CEO.
+    <span id="summaryRemaining">{{ stats.remaining }}</span> items still need
+    attention.
+  </div>
+
+  <!-- Verifications Pending CEO Review -->
+  {% if verifications %}
+  <div class="card">
+    <h3>Verifications Pending CEO Review</h3>
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Verification ID</th>
+          <th>User Name</th>
+          <th>User Email</th>
+          <th>Admin Notes</th>
+          <th>Status</th>
+          <th>Submitted</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for verification in verifications %}
+        <tr>
+          <td>
+            <a
+              href="{{ url_for('verification_detail', verification_id=verification._id) }}"
+              style="color: #2563eb; text-decoration: none; font-weight: 600"
+            >
+              {{ verification._id[:8] }}
+            </a>
+          </td>
+          <td>{{ verification.user_name }}</td>
+          <td>{{ verification.user_email }}</td>
+          <td>
+            <div
+              style="
+                max-width: 200px;
+                overflow: hidden;
+                text-overflow: ellipsis;
+              "
+            >
+              {% if verification.admin_notes %}
+              <small
+                >{{ verification.admin_notes[:50] }}{% if
+                verification.admin_notes|length > 50 %}...{% endif %}</small
+              >
+              {% else %}
+              <small style="color: #9ca3af">No notes</small>
+              {% endif %}
+            </div>
+          </td>
+          <td>
+            <span class="badge badge-primary">CEO Review</span>
+          </td>
+          <td>
+            <small style="color: #6b7280">
+              {{ verification.created_at.strftime('%Y-%m-%d %H:%M') }}
+            </small>
+          </td>
+          <td>
+            <button
+              class="btn"
+              style="
+                background-color: #10b981;
+                color: white;
+                font-size: 0.875rem;
+                padding: 0.5rem 1rem;
+              "
+              onclick="approveVerification('{{ verification._id }}')"
+            >
+              Approve
+            </button>
+            <button
+              class="btn"
+              style="
+                background-color: #ef4444;
+                color: white;
+                font-size: 0.875rem;
+                padding: 0.5rem 1rem;
+                margin-left: 0.5rem;
+              "
+              onclick="rejectVerification('{{ verification._id }}')"
+            >
+              Reject
+            </button>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="card" style="text-align: center; padding: 3rem">
+    <h3 style="color: #10b981; margin-bottom: 1rem">
+      All Verifications Cleared!
+    </h3>
+    <p style="color: #6b7280">
+      All pending verifications have been reviewed and approved. Great work!
+    </p>
+  </div>
+  {% endif %}
+
+  <!-- Completed Verifications Today -->
+  <div class="card" style="margin-top: 2rem">
+    <h3>Today's Completion Summary</h3>
+    <div
+      style="
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 1rem;
+        margin-top: 1rem;
+      "
+    >
+      <div
+        style="
+          padding: 1rem;
+          background-color: #f0fdf4;
+          border-left: 4px solid #10b981;
+        "
+      >
+        <p style="color: #6b7280; font-size: 0.875rem; margin: 0">
+          Total Cleared
+        </p>
+        <p
+          style="
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #10b981;
+            margin: 0.5rem 0 0 0;
+          "
+        >
+          {{ stats.cleared }}
+        </p>
+      </div>
+      <div
+        style="
+          padding: 1rem;
+          background-color: #fef3c7;
+          border-left: 4px solid #f59e0b;
+        "
+      >
+        <p style="color: #6b7280; font-size: 0.875rem; margin: 0">
+          Still Pending
+        </p>
+        <p
+          style="
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #f59e0b;
+            margin: 0.5rem 0 0 0;
+          "
+        >
+          {{ stats.remaining }}
+        </p>
+      </div>
+      <div
+        style="
+          padding: 1rem;
+          background-color: #eff6ff;
+          border-left: 4px solid #3b82f6;
+        "
+      >
+        <p style="color: #6b7280; font-size: 0.875rem; margin: 0">
+          Pending Admin Review
+        </p>
+        <p
+          style="
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #3b82f6;
+            margin: 0.5rem 0 0 0;
+          "
+        >
+          {{ stats.pending }}
+        </p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modals -->
+<div id="approveModal" class="modal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h2>Approve Verification</h2>
+    </div>
+    <form id="approveForm">
+      <div class="form-group">
+        <label for="ceoNotes">Approval Comment (Required)</label>
+        <textarea
+          id="ceoNotes"
+          name="notes"
+          required
+          style="height: 100px"
+          placeholder="Add your approval comment..."
+        ></textarea>
+      </div>
+      <div class="modal-footer">
+        <button
+          type="button"
+          class="btn"
+          style="background-color: #e5e7eb; color: #374151"
+          onclick="closeModal('approveModal')"
+        >
+          Cancel
+        </button>
+        <button type="submit" class="btn btn-success">Approve & Clear</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div id="rejectModal" class="modal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h2>Reject Verification</h2>
+    </div>
+    <form id="rejectForm">
+      <div class="form-group">
+        <label for="rejectReason">Reason for Rejection</label>
+        <textarea
+          id="rejectReason"
+          name="reason"
+          required
+          style="height: 100px"
+          placeholder="Explain why this verification is being rejected..."
+        ></textarea>
+      </div>
+      <div class="modal-footer">
+        <button
+          type="button"
+          class="btn"
+          style="background-color: #e5e7eb; color: #374151"
+          onclick="closeModal('rejectModal')"
+        >
+          Cancel
+        </button>
+        <button type="submit" class="btn btn-danger">Reject</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+  let currentVerificationId = null;
+
+  function approveVerification(verificationId) {
+    currentVerificationId = verificationId;
+    document.getElementById("approveModal").classList.add("show");
+  }
+
+  function rejectVerification(verificationId) {
+    currentVerificationId = verificationId;
+    document.getElementById("rejectModal").classList.add("show");
+  }
+
+  function closeModal(modalId) {
+    document.getElementById(modalId).classList.remove("show");
+  }
+
+  document
+    .getElementById("approveForm")
+    .addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const notes = document.getElementById("ceoNotes").value;
+
+      if (!notes.trim()) {
+        alert("Please add an approval comment");
+        return;
+      }
+
+      try {
+        const response = await fetch(`/ceo/approve/${currentVerificationId}`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ notes: notes }),
+        });
+
+        if (response.ok) {
+          alert("Verification approved and cleared. User has been notified.");
+          refreshDashboard();
+        } else {
+          alert("Error approving verification");
+        }
+      } catch (error) {
+        console.error("Error:", error);
+        alert("Error approving verification");
+      }
+
+      closeModal("approveModal");
+    });
+
+  document
+    .getElementById("rejectForm")
+    .addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const reason = document.getElementById("rejectReason").value;
+
+      if (!reason.trim()) {
+        alert("Please add a rejection comment");
+        return;
+      }
+
+      try {
+        const response = await fetch(`/ceo/reject/${currentVerificationId}`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ reason: reason }),
+        });
+
+        if (response.ok) {
+          alert("Verification rejected and user notified");
+          refreshDashboard();
+        } else {
+          alert("Error rejecting verification");
+        }
+      } catch (error) {
+        console.error("Error:", error);
+        alert("Error rejecting verification");
+      }
+
+      closeModal("rejectModal");
+    });
+
+  async function refreshDashboard() {
+    location.reload();
+  }
+
+  // Auto-refresh dashboard every 5 seconds
+  setInterval(async () => {
+    try {
+      const response = await fetch("/api/dashboard-data");
+      if (response.ok) {
+        const data = await response.json();
+        if (data.role === "ceo") {
+          updateCEOStats(data.today_stats);
+        }
+      }
+    } catch (error) {
+      console.log("[v0] Auto-refresh error:", error);
+    }
+  }, 5000);
+
+  function updateCEOStats(stats) {
+    // Update stat cards
+    const totalCard = document.querySelector(
+      ".stats-grid .stat-card:nth-child(1) .number",
+    );
+    const pendingCard = document.querySelector(
+      ".stats-grid .stat-card:nth-child(2) .number",
+    );
+    const adminApprovedCard = document.querySelector(
+      ".stats-grid .stat-card:nth-child(3) .number",
+    );
+    const ceoApprovedCard = document.querySelector(
+      ".stats-grid .stat-card:nth-child(4) .number",
+    );
+    const clearedCard = document.querySelector(
+      ".stats-grid .stat-card:nth-child(5) .number",
+    );
+    const remainingCard = document.querySelector(
+      ".stats-grid .stat-card:nth-child(6) .number",
+    );
+
+    if (totalCard) totalCard.textContent = stats.total_emails;
+    if (pendingCard) pendingCard.textContent = stats.pending;
+    if (adminApprovedCard) adminApprovedCard.textContent = stats.admin_approved;
+    if (ceoApprovedCard) ceoApprovedCard.textContent = stats.ceo_approved;
+    if (clearedCard) clearedCard.textContent = stats.cleared;
+    if (remainingCard) remainingCard.textContent = stats.remaining;
+
+    // Update summary alert
+    const summaryTotal = document.getElementById("summaryTotal");
+    const summaryAdminApproved = document.getElementById(
+      "summaryAdminApproved",
+    );
+    const summaryCeoApproved = document.getElementById("summaryCeoApproved");
+    const summaryRemaining = document.getElementById("summaryRemaining");
+
+    if (summaryTotal) summaryTotal.textContent = stats.total_emails;
+    if (summaryAdminApproved)
+      summaryAdminApproved.textContent = stats.admin_approved;
+    if (summaryCeoApproved) summaryCeoApproved.textContent = stats.ceo_approved;
+    if (summaryRemaining) summaryRemaining.textContent = stats.remaining;
+
+    // Update completion summary boxes
+    const completionSection = document.querySelector(
+      'div[style*="grid-template-columns"]',
+    );
+    if (completionSection) {
+      const summaryValues = completionSection.querySelectorAll(
+        'p[style*="font-size: 1.5rem"]',
+      );
+      if (summaryValues[0]) summaryValues[0].textContent = stats.cleared;
+      if (summaryValues[1]) summaryValues[1].textContent = stats.remaining;
+      if (summaryValues[2]) summaryValues[2].textContent = stats.pending;
+    }
+  }
+
+  // Close modal on outside click
+  window.addEventListener("click", (e) => {
+    const approveModal = document.getElementById("approveModal");
+    const rejectModal = document.getElementById("rejectModal");
+    if (e.target === approveModal) {
+      closeModal("approveModal");
+    }
+    if (e.target === rejectModal) {
+      closeModal("rejectModal");
+    }
+  });
+</script>
+{% endblock %}
