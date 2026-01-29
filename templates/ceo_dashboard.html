@@ -111,6 +111,22 @@ endblock %} {% block content %}
             </small>
           </td>
           <td>
+            <div
+              id="risk-badge-{{ verification._id }}"
+              style="margin-bottom: 0.5rem"
+            ></div>
+            <button
+              class="btn"
+              style="
+                background-color: #8b5cf6;
+                color: white;
+                font-size: 0.875rem;
+                padding: 0.5rem 1rem;
+              "
+              onclick="viewExtractedContent('{{ verification._id }}')"
+            >
+              View
+            </button>
             <button
               class="btn"
               style="
@@ -118,6 +134,7 @@ endblock %} {% block content %}
                 color: white;
                 font-size: 0.875rem;
                 padding: 0.5rem 1rem;
+                margin-left: 0.5rem;
               "
               onclick="approveVerification('{{ verification._id }}')"
             >
@@ -232,6 +249,32 @@ endblock %} {% block content %}
 </div>
 
 <!-- Modals -->
+<div id="extractedContentModal" class="modal">
+  <div
+    class="modal-content"
+    style="max-width: 800px; max-height: 80vh; overflow-y: auto"
+  >
+    <div class="modal-header">
+      <h2>Extracted Document Content</h2>
+    </div>
+    <div id="contentBody" style="padding: 1.5rem">
+      <div style="text-align: center">
+        <p>Loading...</p>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button
+        type="button"
+        class="btn"
+        style="background-color: #e5e7eb; color: #374151"
+        onclick="closeModal('extractedContentModal')"
+      >
+        Close
+      </button>
+    </div>
+  </div>
+</div>
+
 <div id="approveModal" class="modal">
   <div class="modal-content">
     <div class="modal-header">
@@ -296,6 +339,119 @@ endblock %} {% block content %}
 
 <script>
   let currentVerificationId = null;
+
+  // Load and display risk badges for all verifications
+  async function loadRiskBadges() {
+    const verificationElements = document.querySelectorAll(
+      '[id^="risk-badge-"]',
+    );
+
+    for (const elem of verificationElements) {
+      const verificationId = elem.id.replace("risk-badge-", "");
+      try {
+        const response = await fetch(
+          `/api/verification/${verificationId}/documents`,
+        );
+        if (!response.ok) continue;
+
+        const data = await response.json();
+        const hasHighRisk =
+          data.documents && data.documents.some((doc) => doc.is_high_risk);
+
+        if (hasHighRisk) {
+          const highRiskDocs = data.documents.filter((doc) => doc.is_high_risk);
+          elem.innerHTML = `
+            <span style="background-color: #dc2626; color: white; padding: 4px 8px; border-radius: 3px; font-size: 0.75rem; display: inline-block;">
+              ⚠️ HIGH RISK (${highRiskDocs.length}) - ${highRiskDocs[0].expiry_date || "Expiring"}
+            </span>
+          `;
+        }
+      } catch (error) {
+        console.log("[v0] Error loading risk badge:", error);
+      }
+    }
+  }
+
+  async function viewExtractedContent(verificationId) {
+    try {
+      const response = await fetch(
+        `/api/verification/${verificationId}/documents`,
+      );
+      if (!response.ok) {
+        alert("Error loading extracted content");
+        return;
+      }
+
+      const data = await response.json();
+      const contentBody = document.getElementById("contentBody");
+
+      if (data.documents && data.documents.length > 0) {
+        let html = "";
+
+        data.documents.forEach((doc, index) => {
+          const riskBadge = doc.is_high_risk
+            ? `<span style="background-color: #dc2626; color: white; padding: 4px 8px; border-radius: 3px; font-size: 0.85rem; margin-left: auto;">⚠️ HIGH RISK</span>`
+            : "";
+
+          html += `
+            <div style="margin-bottom: 2rem; padding: 1rem; background-color: ${doc.is_high_risk ? "#fef2f2" : "#f9fafb"}; border-left: 4px solid ${doc.is_high_risk ? "#dc2626" : "#8b5cf6"};">
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <h3 style="margin-top: 0; color: ${doc.is_high_risk ? "#dc2626" : "#8b5cf6"};">${doc.document_type.toUpperCase()}</h3>
+                ${riskBadge}
+              </div>
+              <div style="margin: 1rem 0;">
+                <strong>Status:</strong> <span style="color: #10b981;">${doc.firmcheck_status}</span>
+              </div>
+              <div style="margin: 1rem 0;">
+                <strong>Uploaded:</strong> <span>${new Date(doc.uploaded_at).toLocaleString()}</span>
+              </div>
+              ${doc.expiry_date ? `<div style="margin: 1rem 0;"><strong>Expiry Date:</strong> <span style="${doc.is_high_risk ? "color: #dc2626; font-weight: bold;" : ""}">${doc.expiry_date}</span></div>` : ""}
+              
+              <div style="margin: 1rem 0;">
+                <strong>Extracted Content:</strong>
+                <div style="margin-top: 0.5rem; padding: 1rem; background-color: white; border: 1px solid #e5e7eb; border-radius: 4px; white-space: pre-wrap; font-family: monospace; font-size: 0.875rem; max-height: 300px; overflow-y: auto;">
+                  ${doc.full_text}
+                </div>
+              </div>
+              
+              ${
+                Object.keys(doc.extracted_fields).length > 0
+                  ? `
+                <div style="margin: 1rem 0;">
+                  <strong>Extracted Fields:</strong>
+                  <ul style="margin: 0.5rem 0; padding-left: 1.5rem;">
+                    ${Object.entries(doc.extracted_fields)
+                      .map(
+                        ([key, value]) =>
+                          `<li><strong>${key}:</strong> ${value}</li>`,
+                      )
+                      .join("")}
+                  </ul>
+                </div>
+              `
+                  : ""
+              }
+              
+              ${index < data.documents.length - 1 ? '<hr style="margin: 1.5rem 0; border: none; border-top: 1px solid #e5e7eb;">' : ""}
+            </div>
+          `;
+        });
+
+        contentBody.innerHTML = html;
+      } else {
+        contentBody.innerHTML =
+          '<p style="text-align: center; color: #6b7280;">No documents found for this verification.</p>';
+      }
+
+      document.getElementById("extractedContentModal").classList.add("show");
+    } catch (error) {
+      console.error("[v0] Error loading extracted content:", error);
+      alert("Error loading extracted content");
+    }
+  }
+
+  // Load risk badges when page loads
+  document.addEventListener("DOMContentLoaded", loadRiskBadges);
 
   function approveVerification(verificationId) {
     currentVerificationId = verificationId;
@@ -383,48 +539,45 @@ endblock %} {% block content %}
     location.reload();
   }
 
-  // Auto-refresh dashboard every 5 seconds
+  // Auto-refresh dashboard every 3 seconds
   setInterval(async () => {
     try {
       const response = await fetch("/api/dashboard-data");
       if (response.ok) {
         const data = await response.json();
         if (data.role === "ceo") {
+          console.log("[v0] CEO stats updated:", data.today_stats);
           updateCEOStats(data.today_stats);
         }
       }
     } catch (error) {
       console.log("[v0] Auto-refresh error:", error);
     }
-  }, 5000);
+  }, 3000);
 
   function updateCEOStats(stats) {
-    // Update stat cards
-    const totalCard = document.querySelector(
-      ".stats-grid .stat-card:nth-child(1) .number",
-    );
-    const pendingCard = document.querySelector(
-      ".stats-grid .stat-card:nth-child(2) .number",
-    );
-    const adminApprovedCard = document.querySelector(
-      ".stats-grid .stat-card:nth-child(3) .number",
-    );
-    const ceoApprovedCard = document.querySelector(
-      ".stats-grid .stat-card:nth-child(4) .number",
-    );
-    const clearedCard = document.querySelector(
-      ".stats-grid .stat-card:nth-child(5) .number",
-    );
-    const remainingCard = document.querySelector(
-      ".stats-grid .stat-card:nth-child(6) .number",
+    // Update all 6 stat cards
+    const statCards = document.querySelectorAll(
+      ".stats-grid .stat-card .number",
     );
 
-    if (totalCard) totalCard.textContent = stats.total_emails;
-    if (pendingCard) pendingCard.textContent = stats.pending;
-    if (adminApprovedCard) adminApprovedCard.textContent = stats.admin_approved;
-    if (ceoApprovedCard) ceoApprovedCard.textContent = stats.ceo_approved;
-    if (clearedCard) clearedCard.textContent = stats.cleared;
-    if (remainingCard) remainingCard.textContent = stats.remaining;
+    if (statCards.length >= 6) {
+      statCards[0].textContent = stats.total_emails || 0;
+      statCards[1].textContent = stats.pending || 0;
+      statCards[2].textContent = stats.admin_approved || 0;
+      statCards[3].textContent = stats.ceo_approved || 0;
+      statCards[4].textContent = stats.cleared || 0;
+      statCards[5].textContent = stats.remaining || 0;
+
+      console.log("[v0] Updated CEO stat cards:", {
+        total: stats.total_emails,
+        pending: stats.pending,
+        admin_approved: stats.admin_approved,
+        ceo_approved: stats.ceo_approved,
+        cleared: stats.cleared,
+        remaining: stats.remaining,
+      });
+    }
 
     // Update summary alert
     const summaryTotal = document.getElementById("summaryTotal");
@@ -434,24 +587,12 @@ endblock %} {% block content %}
     const summaryCeoApproved = document.getElementById("summaryCeoApproved");
     const summaryRemaining = document.getElementById("summaryRemaining");
 
-    if (summaryTotal) summaryTotal.textContent = stats.total_emails;
+    if (summaryTotal) summaryTotal.textContent = stats.total_emails || 0;
     if (summaryAdminApproved)
-      summaryAdminApproved.textContent = stats.admin_approved;
-    if (summaryCeoApproved) summaryCeoApproved.textContent = stats.ceo_approved;
-    if (summaryRemaining) summaryRemaining.textContent = stats.remaining;
-
-    // Update completion summary boxes
-    const completionSection = document.querySelector(
-      'div[style*="grid-template-columns"]',
-    );
-    if (completionSection) {
-      const summaryValues = completionSection.querySelectorAll(
-        'p[style*="font-size: 1.5rem"]',
-      );
-      if (summaryValues[0]) summaryValues[0].textContent = stats.cleared;
-      if (summaryValues[1]) summaryValues[1].textContent = stats.remaining;
-      if (summaryValues[2]) summaryValues[2].textContent = stats.pending;
-    }
+      summaryAdminApproved.textContent = stats.admin_approved || 0;
+    if (summaryCeoApproved)
+      summaryCeoApproved.textContent = stats.ceo_approved || 0;
+    if (summaryRemaining) summaryRemaining.textContent = stats.remaining || 0;
   }
 
   // Close modal on outside click

@@ -118,6 +118,8 @@ def submit_documents():
             user_email, user_name, doc_types
         )
 
+        high_risk_documents = []
+
         # Handle file uploads
         if "files" in request.files:
             files = request.files.getlist("files")
@@ -126,8 +128,8 @@ def submit_documents():
                     filename = secure_filename(file.filename)
 
                     # Determine document type from selected options
-                    doc_types = request.form.getlist("document_types")
-                    doc_type = doc_types[0] if doc_types else "other"
+                    doc_types_list = request.form.getlist("document_types")
+                    doc_type = doc_types_list[0] if doc_types_list else "other"
 
                     # Save file
                     file_path = os.path.join(
@@ -140,13 +142,32 @@ def submit_documents():
                         file_path, doc_type
                     )
 
-                    # Extract data
+                    # Extract data with text extraction
+                    print(f"[v0] Extracting text from {doc_type}...")
                     extracted_data = extract_text_from_image(file_path, doc_type)
+                    print(
+                        f"[v0] Extraction result: {extracted_data.get('status', 'unknown')}"
+                    )
 
                     # Add to database
                     doc_id = VerificationService.add_document(
                         verification_id, doc_type, file_path, extracted_data
                     )
+
+                    # Check if document is high risk
+                    if extracted_data.get("is_high_risk", False):
+                        high_risk_documents.append(
+                            {
+                                "document_type": doc_type,
+                                "expiry_date": extracted_data.get(
+                                    "expiry_date", "Unknown"
+                                ),
+                                "doc_id": doc_id,
+                            }
+                        )
+                        print(
+                            f"[v0] HIGH RISK document detected: {doc_type} expiring {extracted_data.get('expiry_date')}"
+                        )
 
                     # Mock FirmCheck verification
                     VerificationService.verify_with_firmcheck(doc_id, extracted_data)
@@ -155,6 +176,13 @@ def submit_documents():
         EmailService.send_admin_notification(
             verification_id, user_email, [{"type": dt} for dt in doc_types]
         )
+
+        # Send high-risk warning email to user if any high-risk documents
+        if high_risk_documents:
+            print(f"[v0] Sending high-risk warning email to {user_email}")
+            EmailService.send_high_risk_document_warning(
+                user_email, user_name, high_risk_documents
+            )
 
         return redirect(url_for("user_dashboard"))
 
@@ -492,6 +520,116 @@ def send_daily_summary():
     EmailService.send_ceo_summary(stats)
 
     return jsonify({"success": True, "summary_sent": True})
+
+
+@app.route("/api/document/<document_id>/extracted-text")
+def get_extracted_text(document_id):
+    """Get extracted text content from a document"""
+    if not is_authenticated():
+        return jsonify({"error": "Unauthorized"}), 401
+
+    try:
+        documents = db.get_documents_collection()
+        document = documents.find_one({"_id": ObjectId(document_id)})
+
+        if not document:
+            return jsonify({"error": "Document not found"}), 404
+
+        # Get verification to check if user has access
+        verification_id = document.get("verification_id")
+        verifications = db.get_verifications_collection()
+        verification = verifications.find_one({"_id": verification_id})
+
+        if not verification:
+            return jsonify({"error": "Verification not found"}), 404
+
+        # Check authorization
+        user_role = get_user_role()
+        user_email = session.get("user_email")
+
+        if user_role == "user" and verification["user_email"] != user_email:
+            return jsonify({"error": "Unauthorized"}), 401
+
+        # Extract text from document
+        extracted_data = document.get("extracted_data", {})
+        full_text = extracted_data.get("full_text", "No text extracted")
+        extracted_fields = extracted_data.get("extracted_fields", {})
+
+        return jsonify(
+            {
+                "success": True,
+                "document_type": document.get("document_type"),
+                "full_text": full_text,
+                "extracted_fields": extracted_fields,
+                "extracted_at": (
+                    document.get("uploaded_at").isoformat()
+                    if document.get("uploaded_at")
+                    else None
+                ),
+            }
+        )
+
+    except Exception as e:
+        return jsonify({"error": f"Error retrieving document: {str(e)}"}), 500
+
+
+@app.route("/api/verification/<verification_id>/documents")
+def get_verification_documents(verification_id):
+    """Get all documents for a verification with extracted text and risk status"""
+    if not is_authenticated():
+        return jsonify({"error": "Unauthorized"}), 401
+
+    try:
+        verifications = db.get_verifications_collection()
+        verification = verifications.find_one({"_id": ObjectId(verification_id)})
+
+        if not verification:
+            return jsonify({"error": "Verification not found"}), 404
+
+        # Check authorization
+        user_role = get_user_role()
+        user_email = session.get("user_email")
+
+        if user_role == "user" and verification["user_email"] != user_email:
+            return jsonify({"error": "Unauthorized"}), 401
+
+        # Get all documents for this verification
+        documents = db.get_documents_collection()
+        docs = list(documents.find({"verification_id": ObjectId(verification_id)}))
+
+        docs_list = []
+        for doc in docs:
+            extracted_data = doc.get("extracted_data", {})
+            docs_list.append(
+                {
+                    "id": str(doc["_id"]),
+                    "document_type": doc.get("document_type"),
+                    "full_text": extracted_data.get("full_text", "No text extracted"),
+                    "extracted_fields": extracted_data.get("extracted_fields", {}),
+                    "uploaded_at": (
+                        doc.get("uploaded_at").isoformat()
+                        if doc.get("uploaded_at")
+                        else None
+                    ),
+                    "firmcheck_status": doc.get("firmcheck_status", "pending"),
+                    "expiry_date": extracted_data.get("expiry_date", None),
+                    "is_high_risk": extracted_data.get("is_high_risk", False),
+                    "extraction_method": extracted_data.get(
+                        "extraction_method", "unknown"
+                    ),
+                }
+            )
+
+        return jsonify(
+            {
+                "success": True,
+                "verification_id": verification_id,
+                "documents": docs_list,
+            }
+        )
+
+    except Exception as e:
+        return jsonify({"error": f"Error retrieving documents: {str(e)}"}), 500
 
 
 # ==================== Error Handlers ====================
