@@ -32,6 +32,7 @@ A comprehensive document verification system built with Flask and MongoDB. This 
 4. **email_logs**: Email notification history
    - recipient, subject, sent_at, status
 
+
 ### Workflow
 
 ```
